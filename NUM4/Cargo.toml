@@ -1,0 +1,15 @@
+[package]
+name = "num4"
+version = "0.1.0"
+edition = "2021"
+
+[[bench]]
+name = "solve"
+harness = false
+
+[dependencies]
+nalgebra = "0.32.3"
+num-traits = "0.2.17"
+
+[dev-dependencies]
+criterion = "0.5.1"
