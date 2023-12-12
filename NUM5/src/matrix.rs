@@ -5,7 +5,7 @@ use std::{
 	ops::{Add, Index, IndexMut},
 };
 
-use num_traits::Num;
+use num_traits::{real::Real, Num};
 
 use crate::vector::Vector;
 
@@ -83,6 +83,60 @@ impl<E: Num, const L: usize, const U: usize> BandMatrix<E, L, U> {
 			zero: E::zero(),
 			elements: iter::repeat_with(E::zero).take((U + L + 1) * n).collect(),
 		}
+	}
+}
+
+impl<E: Real + Copy, const L: usize, const U: usize> BandMatrix<E, L, U> {
+	/// Perform the Gauss-Seidel algorithm, returning the result if it converged
+	pub fn gauss_seidel(
+		&self,
+		mut x: Vector<E>,
+		b: &Vector<E>,
+		epsilon: E,
+		max_iters: usize,
+	) -> Option<Vector<E>> {
+		assert_eq!(self.n(), x.n());
+		assert_eq!(x.n(), b.n());
+
+		let mut next;
+
+		for _ in 0..max_iters {
+			next = self.gauss_seidel_iteration(&x, b);
+
+			if (&x - &next).norm() < epsilon {
+				return Some(next);
+			}
+
+			x = next;
+		}
+
+		None
+	}
+
+	/// Perform the Jacobi algorithm, returning the result if it converged
+	pub fn jacobi(
+		&self,
+		mut x: Vector<E>,
+		b: &Vector<E>,
+		epsilon: E,
+		max_iters: usize,
+	) -> Option<Vector<E>> {
+		assert_eq!(self.n(), x.n());
+		assert_eq!(x.n(), b.n());
+
+		let mut next;
+
+		for _ in 0..max_iters {
+			next = self.jacobi_iteration(&x, b);
+
+			if (&x - &next).norm() < epsilon {
+				return Some(next);
+			}
+
+			x = next;
+		}
+
+		None
 	}
 }
 

@@ -1,8 +1,10 @@
 use std::iter;
 
-use plotters::prelude::*;
+use plotters::{coord::types::RangedCoordi32, prelude::*};
 
 use num5::{gen_b, gen_matrix, BandMatrix, Vector};
+
+type Chart<'a, 'b> = ChartContext<'a, SVGBackend<'b>, Cartesian2d<RangedCoordi32, LogCoord<f64>>>;
 
 fn superscript(n: usize) -> String {
 	const DIGITS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
@@ -52,6 +54,8 @@ fn main() {
 	let b = gen_b(124);
 	let exact = mat.clone().lu_decompose().solve(&b);
 
+	println!("x₁₂₄ = {exact:.6}");
+
 	let xs = iter::repeat(())
 		.take(
 			pico_args::Arguments::from_env()
@@ -62,28 +66,42 @@ fn main() {
 		.map(|_| Vector::from_iter(iter::repeat(()).take(124).map(|_| rand::random())))
 		.collect::<Vec<_>>();
 
-	plot_jacobi(&mat, &b, &exact, &xs);
-	plot_gauss_seidel(&mat, &b, &exact, &xs);
-}
-
-fn plot_jacobi(
-	mat: &BandMatrix<f64, 2, 2>,
-	b: &Vector<f64>,
-	exact: &Vector<f64>,
-	xs: &[Vector<f64>],
-) {
-	let root = SVGBackend::new("./jacobi.svg", (1000, 500)).into_drawing_area();
+	let root = SVGBackend::new("./errors.svg", (1000, 500)).into_drawing_area();
 	root.fill(&WHITE).unwrap();
 
 	let mut chart = ChartBuilder::on(&root)
 		.set_label_area_size(LabelAreaPosition::Left, 60)
 		.set_label_area_size(LabelAreaPosition::Bottom, 60)
-		.caption("Jacobi", ("sans-serif", 40))
 		.build_cartesian_2d(0..81, (f32::EPSILON.into()..200.0).log_scale())
 		.unwrap();
 
-	chart.configure_mesh().draw().unwrap();
+	chart
+		.configure_mesh()
+		.x_desc("k")
+		.y_desc("||x⁽ᵏ⁾ - x||")
+		.draw()
+		.unwrap();
 
+	plot_jacobi(&mut chart, &mat, &b, &exact, &xs);
+	plot_gauss_seidel(&mut chart, &mat, &b, &exact, &xs);
+
+	chart
+		.configure_series_labels()
+		.border_style(&BLACK)
+		.background_style(&WHITE.mix(0.8))
+		.draw()
+		.unwrap();
+
+	root.present().unwrap();
+}
+
+fn plot_jacobi(
+	chart: &mut Chart<'_, '_>,
+	mat: &BandMatrix<f64, 2, 2>,
+	b: &Vector<f64>,
+	exact: &Vector<f64>,
+	xs: &[Vector<f64>],
+) {
 	for x in xs {
 		let mut x = x.clone();
 
@@ -102,35 +120,25 @@ fn plot_jacobi(
 				.collect()
 		};
 
+		let color = HSLColor((rand::random::<f64>() + 1.0) / 4.0, 0.9, 0.75);
 		chart
 			.draw_series(LineSeries::new(
 				(0..).zip(data.iter()).map(|(x, y)| (x, *y)),
-				HSLColor(rand::random(), 0.9, 0.75),
+				color,
 			))
-			.unwrap();
+			.unwrap()
+			.label("Jacobi")
+			.legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &color));
 	}
-
-	root.present().unwrap();
 }
 
 fn plot_gauss_seidel(
+	chart: &mut Chart<'_, '_>,
 	mat: &BandMatrix<f64, 2, 2>,
 	b: &Vector<f64>,
 	exact: &Vector<f64>,
 	xs: &[Vector<f64>],
 ) {
-	let root = SVGBackend::new("./gauss-seidel.svg", (1000, 500)).into_drawing_area();
-	root.fill(&WHITE).unwrap();
-
-	let mut chart = ChartBuilder::on(&root)
-		.set_label_area_size(LabelAreaPosition::Left, 60)
-		.set_label_area_size(LabelAreaPosition::Bottom, 60)
-		.caption("Gauss-Seidel", ("sans-serif", 40))
-		.build_cartesian_2d(0..81, (f32::EPSILON.into()..200.0).log_scale())
-		.unwrap();
-
-	chart.configure_mesh().draw().unwrap();
-
 	for x in xs {
 		let mut x = x.clone();
 
@@ -149,13 +157,14 @@ fn plot_gauss_seidel(
 				.collect()
 		};
 
+		let color = HSLColor((rand::random::<f64>() + 3.0) / 4.0, 0.9, 0.75);
 		chart
 			.draw_series(LineSeries::new(
 				(0..).zip(data.iter()).map(|(x, y)| (x, *y)),
-				HSLColor(rand::random(), 0.9, 0.75),
+				color,
 			))
-			.unwrap();
+			.unwrap()
+			.label("Gauss-Seidel")
+			.legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &color));
 	}
-
-	root.present().unwrap();
 }
